@@ -4,7 +4,7 @@ import random
 import numpy as np
 
 
-def reactive_obst_avoid(lidar):
+def reactive_obst_avoid(lidar, last_rotation_speed):
     """
     Simple obstacle avoidance
     lidar : placebot object with lidar data
@@ -14,6 +14,19 @@ def reactive_obst_avoid(lidar):
     laser_dist = lidar.get_sensor_values()
     speed = 0.0
     rotation_speed = 0.0
+
+    # On regarde si un obstacle est détecté dans un cone
+    cone = laser_dist[140:220]
+
+
+    if(min(cone) < 50):
+        if(last_rotation_speed > 0):
+            rotation_speed = -0.2
+        else:
+            rotation_speed = 0.2
+    else:
+        speed = 0.2
+
 
     command = {"forward": speed,
                "rotation": rotation_speed}
