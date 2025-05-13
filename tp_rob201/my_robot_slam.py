@@ -34,7 +34,7 @@ class MyRobotSlam(RobotAbstract):
         # Here we cheat to get an occupancy grid size that's not too large, by using the
         # robot's starting position and the maximum map size that we shouldn't know.
         size_area = (1400, 1000)
-        robot_position = (439.0, 195)
+        robot_position = (100.0, 100)
         self.occupancy_grid = OccupancyGrid(x_min=-(size_area[0] / 2 + robot_position[0]),
                                             x_max=size_area[0] / 2 - robot_position[0],
                                             y_min=-(size_area[1] / 2 + robot_position[1]),
@@ -51,7 +51,9 @@ class MyRobotSlam(RobotAbstract):
         """
         Main control function executed at each time step
         """
-        return self.control_tp1()
+        self.tiny_slam.update_map(self.lidar(), self.odometer_values())
+        self.occupancy_grid.display_cv(self.odometer_values())
+        return self.control_tp1() 
 
     def control_tp1(self):
         """
@@ -68,7 +70,7 @@ class MyRobotSlam(RobotAbstract):
         Main control function with full SLAM, random exploration and path planning
         """
         pose = self.odometer_values()
-        goal = [0,0,0]
+        goal = [-50,-50,0]
 
         # Compute new command speed to perform obstacle avoidance
         command = potential_field_control(self.lidar(), pose, goal)

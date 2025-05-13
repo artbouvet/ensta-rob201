@@ -58,17 +58,20 @@ class TinySlam:
         pose : [x, y, theta] nparray, corrected pose in world coordinates
         """
         # TODO for TP3
+        dist = lidar.get_sensor_values()
+        angle = lidar.get_ray_angles()
 
-    def compute(self):
-        """ Useless function, just for the exercise on using the profiler """
-        # Remove after TP1
+        p_faible = np.log(0.01/0.99)
+        p_fort = np.log(0.95/0.05)
 
-        ranges = np.random.rand(3600)
-        ray_angles = np.arange(-np.pi, np.pi, np.pi / 1800)
+        x = pose[0] + dist * np.cos(angle + pose[2])
+        y = pose[1] + dist * np.sin(angle + pose[2])
 
-        # Poor implementation of polar to cartesian conversion
-        points = []
-        for i in range(3600):
-            pt_x = ranges[i] * np.cos(ray_angles[i])
-            pt_y = ranges[i] * np.sin(ray_angles[i])
-            points.append([pt_x, pt_y])
+        for i in range(len(dist)):
+            xi = x[i]
+            yi = y[i]
+
+            self.grid.add_value_along_line(pose[0], pose[1], xi, yi, p_faible)
+        
+        self.grid.add_map_points(x, y, p_fort-p_faible)
+        self.grid.occupancy_map = np.clip(self.grid.occupancy_map, -40, 40)
