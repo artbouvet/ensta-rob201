@@ -3,39 +3,50 @@
 import random
 import numpy as np
 
-
 last_turn = 1  # Mémoire courte
-
 def reactive_obst_avoid(lidar):
+    """
+    Simple obstacle avoidance
+    lidar : placebot object with lidar data
+    management of blocking situations : add of a small random biais
+    """
+    # TODO for TP1
+
     global last_turn
 
     laser_dist = lidar.get_sensor_values()
     speed = 0.0
     rotation_speed = 0.0
 
+    # On regarde si un obstacle est détecté dans un cone
     cone = laser_dist[140:220]
 
-    if min(cone) < 50:
-        # Obstacle détecté
+    if(min(cone) < 50):
+        # Sens de rotation selon angle de l'obstacle
         left = np.mean(laser_dist[140:160])
         right = np.mean(laser_dist[200:220])
-
-        if left < right:
+        if(left < right):
+            # On tourne à droite
             rotation_speed = 0.3
             last_turn = 1
         else:
+            # On tourne à gauche
             rotation_speed = -0.3
             last_turn = -1
     else:
-        # Pas d'obstacle en face, on avance
+        # On avance si absence d'obstacle en face
         speed = 0.4
 
-        # Et on ajoute un petit biais aléatoire pour l’exploration
-        if np.random.rand() < 0.01:
-            rotation_speed = last_turn * 0.2  # tourne légèrement vers la dernière direction libre
+        # ajout d'un biais aléatoire pour l’exploration
+        if (np.random.rand()<0.01):
+            rotation_speed = (last_turn * 0.2)  # tourne légèrement vers la dernière direction utilisée
 
-    return {"forward": speed, "rotation": rotation_speed}
 
+
+    command = {"forward": speed,
+               "rotation": rotation_speed}
+
+    return command
 
 
 def potential_field_control(lidar, current_pose, goal_pose):
