@@ -41,8 +41,6 @@ def reactive_obst_avoid(lidar):
         if (np.random.rand()<0.01):
             rotation_speed = (last_turn * 0.2)  # tourne légèrement vers la dernière direction utilisée
 
-
-
     command = {"forward": speed,
                "rotation": rotation_speed}
 
@@ -60,47 +58,74 @@ def potential_field_control(lidar, current_pose, goal_pose):
     on initial pose, x forward, y on left)
     """
 
-
     K_goal = 0.4  # Gain for goal attraction
-    K_rep = 400000   # Gain for repulsion
-    d = np.sqrt((goal_pose[0] - current_pose[0])**2 + (goal_pose[1] - current_pose[1])**2)
-
-    d_obs = lidar.get_sensor_values()[160:200].min()
-
-    if d > 3:
-        grad_f_att = K_goal * (goal_pose - current_pose) / d
-
-        d_safe = 50
-        if d_obs>d_safe:
-            grad_f_rep = np.zeros(3)
-            r_speed = 0.0
-        else:
-            grad_f_rep = K_rep/d**3 * (1/d_obs - 1/d_safe) * (goal_pose - current_pose)
-
-            repulsive_direction = np.arctan2(grad_f_rep[0], grad_f_rep[1])
-            r_speed = K_rep * (repulsive_direction - current_pose[2])
-        print(grad_f_att, grad_f_rep)
-        grad_f = grad_f_att + grad_f_rep
-
-        speed = np.linalg.norm(grad_f[0:1]) 
-        speed = max(min(speed, 1.0), -1.0)
+    K_rep = 1500   # Gain for repulsion
+    d_safe = 100  # Safe distance to obstacle
+    d_stop = 20  # Stop distance to objective
 
 
-        # Normalize the rotation speed to the range [-pi, pi]
-        r_speed = (r_speed + np.pi) % (2 * np.pi) - np.pi
+    pos_q = current_pose[:2]
+    pos_goal = goal_pose[:2]
+    theta = current_pose[2]
 
-        # Ensure the rotation speed is within the range [-1, 1]
-        r_speed = max(min(r_speed, 1.0), -1.0)
+    delta = pos_goal-pos_q
+    d = np.linalg.norm(delta)
 
+    if(d<1e-5):
+        d = 1e-5 # to avoid division by zero
+
+    # Attractive potential
+    if(d<d_stop):
+        grad_f_att = K_goal*delta #quadtratic potential
     else:
+        grad_f_att = K_goal*delta/d #linear potential
+
+    # Repulsive potential
+    laser_dist = lidar.get_sensor_values()
+    laser_angles = lidar.get_ray_angles()
+
+    grad_f_rep = np.zeros(2)
+
+    for dist,angle in zip(laser_dist, laser_angles):
+        if 1.0 < dist < d_safe:
+            # Obstacle position in robot frame
+            x_obs = dist*np.cos(angle)
+            y_obs = dist*np.sin(angle)
+            q_obs = np.array([x_obs, y_obs])
+            q_robot = np.array([0.0, 0.0])  # robot centered
+
+            d_q_qobs = np.linalg.norm(q_obs-q_robot)
+            if d_q_qobs < 1e-5:
+                d_q_qobs= 1e-5  # éviter division par zéro
+
+            repulsion = K_rep*((1.0/d_q_qobs)-(1.0/d_safe))/(d_q_qobs**3)*(q_robot - q_obs)
+            grad_f_rep +=repulsion
+
+    # Global potential
+    grad_f = grad_f_att + grad_f_rep
+
+    angle_to_grad = np.arctan2(grad_f[1], grad_f[0])
+    angle_diff = angle_to_grad - theta
+
+    # Angle normalization
+    angle_diff = (angle_diff+np.pi)%(2*np.pi)-np.pi
+
+    speed = np.clip(np.linalg.norm(grad_f), -1.0, 1.0)
+    r_speed = np.clip(angle_diff, -1.0, 1.0)
+
+    if d <d_stop:
         speed = 0.0
         r_speed = 0.0
 
-    print(speed, r_speed)
     speed = round(speed, 2)
     r_speed = round(r_speed, 2)
+
+    # debug
+    #print("grad_att:", grad_f_att, "grad_rep:", grad_f_rep)
+    #print("cmd:", speed, r_speed)
 
     command = {"forward": speed,
                "rotation": r_speed}
 
     return command
+
