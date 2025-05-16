@@ -18,8 +18,13 @@ def reactive_obst_avoid(lidar):
     speed = 0.0
     rotation_speed = 0.0
 
+
+
     # On regarde si un obstacle est détecté dans un cone
     cone = laser_dist[140:220]
+
+    if max(cone)<50:
+        return {"forward": -0.5, "rotation": last_turn*0.5}  # recule si obstacle trop proche
 
     if(min(cone) < 50):
         # Sens de rotation selon angle de l'obstacle
@@ -28,18 +33,24 @@ def reactive_obst_avoid(lidar):
         if(left < right):
             # On tourne à droite
             rotation_speed = 0.3
+            speed = 0.1
             last_turn = 1
         else:
             # On tourne à gauche
             rotation_speed = -0.3
+            speed = 0.1
             last_turn = -1
     else:
         # On avance si absence d'obstacle en face
         speed = 0.4
 
         # ajout d'un biais aléatoire pour l’exploration
-        if (np.random.rand()<0.01):
-            rotation_speed = (last_turn * 0.2)  # tourne légèrement vers la dernière direction utilisée
+        rdm = np.random.rand()
+        if (rdm<0.3):
+            if(rdm<0.15):
+                rotation_speed = (last_turn * 0.2)  # tourne légèrement vers la dernière direction utilisée
+            else:
+                rotation_speed = -(last_turn * 0.2)
 
     command = {"forward": speed,
                "rotation": rotation_speed}

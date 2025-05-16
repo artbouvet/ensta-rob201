@@ -58,7 +58,7 @@ class MyRobotSlam(RobotAbstract):
         """
         self.tiny_slam.update_map(self.lidar(), self.odometer_values())
         self.occupancy_grid.display_cv(self.odometer_values())
-        return self.control_tp2() 
+        return self.control_tp1() 
 
     def control_tp1(self):
         """
@@ -83,7 +83,7 @@ class MyRobotSlam(RobotAbstract):
 
             size_area = (1400, 1000)
             robot_position = (100.0, 100)
-            
+
             x_min=-(size_area[0] / 2 + robot_position[0])
             x_max=size_area[0] / 2 - robot_position[0]
             y_min=-(size_area[1] / 2 + robot_position[1])
