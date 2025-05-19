@@ -51,14 +51,19 @@ class MyRobotSlam(RobotAbstract):
         self.goal_pose = np.array([50.0, 50.0, 0.0])  #initial objective
         self.goal_reached_threshold = 30.0  #threshold to consider the goal reached
 
+        self.first_update_done = False
+
+        
 
     def control(self):
         """
         Main control function executed at each time step
         """
-        self.tiny_slam.update_map(self.lidar(), self.odometer_values())
-        self.occupancy_grid.display_cv(self.odometer_values())
-        return self.control_tp1() 
+
+        
+               
+        return self.control_tp3()
+
 
     def control_tp1(self):
         """
@@ -83,11 +88,11 @@ class MyRobotSlam(RobotAbstract):
 
             size_area = (1400, 1000)
             robot_position = (100.0, 100)
-
-            x_min=-(size_area[0] / 2 + robot_position[0])
-            x_max=size_area[0] / 2 - robot_position[0]
-            y_min=-(size_area[1] / 2 + robot_position[1])
-            y_max=size_area[1] / 2 - robot_position[1]
+            # si objectif atteint : on fixe un nouvel objectif aléatoire
+            x_min=-(size_area[0] /2+robot_position[0])
+            x_max=size_area[0]/2-robot_position[0]
+            y_min=-(size_area[1] /2+robot_position[1])
+            y_max=size_area[1] /2-robot_position[1]
 
             new_x = np.random.uniform(x_min+100, x_max-100)
             new_y = np.random.uniform(y_min+100, y_max-100)
@@ -95,7 +100,82 @@ class MyRobotSlam(RobotAbstract):
             self.goal_pose = np.array([new_x, new_y, 0.0])
             print("New goal: ", self.goal_pose)
 
-        # Compute new command speed to perform obstacle avoidance
         command = potential_field_control(self.lidar(), pose, goal)
 
         return command
+    
+    def control_tp3(self):
+        command = self.control_tp1()
+        self.tiny_slam.update_map(self.lidar(), self.odometer_values())
+        self.occupancy_grid.display_cv(self.odometer_values())
+        return command
+
+    def control_tp4(self):
+        raw_pose = self.odometer_values()
+
+        if not self.first_update_done:
+            # Première mise à jour forcée
+            self.corrected_pose = self.tiny_slam.get_corrected_pose(raw_pose)
+            self.tiny_slam.update_map(self.lidar(), self.corrected_pose)
+            self.occupancy_grid.display_cv(self.corrected_pose)
+            self.first_update_done = True
+            print("Première mise à jour de la carte forcee")
+            return self.control_tp1()
+
+        # SLAM standard ensuite
+        score = self.tiny_slam.localise(self.lidar(), raw_pose)
+        print(f"score: {score}")
+
+        if score > 100:
+            self.corrected_pose = self.tiny_slam.get_corrected_pose(raw_pose)
+            self.tiny_slam.update_map(self.lidar(), self.corrected_pose)
+            self.occupancy_grid.display_cv(self.corrected_pose)
+        else:
+            self.occupancy_grid.display_cv(raw_pose)
+        command = self.control_tp1()
+        
+        return command
+
+    """
+    NON FONCTIONNEL
+    def control_tp5(self):
+    
+
+        # nbre d'iterations pour cartographie
+        NB_ITER = 100
+
+        lidar = self.lidar()
+        odo = self.odometer_values()
+        self.tiny_slam.update_map(lidar, odo)
+        score = self.tiny_slam.localise(lidar, odo)
+
+        self.counter += 1
+        print("iteration :", self.counter)
+
+        self.corrected_pose = self.tiny_slam.get_corrected_pose(odo)
+
+        # on détermine l'objectif en fonction de la phase d'exploration ou de retour
+        if self.counter < NB_ITER:
+            # Phase d'exploration : objectif fixe
+            goal = [-800, 0, 0]
+        else:
+            # Phase de retour : planification et suivi du chemin
+            if self.counter == NB_ITER:
+                start = self.corrected_pose[:2]
+                goal = [0, 0,0]  #retour à la position initiale
+                path = self.planner.plan(start, goal)
+                if path:
+                    print("Chemin trouvé :", path)
+                    self.path = path
+                    self.occupancy_grid.display_cv(odo, goal=goal, traj=path)
+
+            # Suivi du chemin planifié
+            if hasattr(self, 'path') and self.path:
+                goal = self.path.pop(0)  # prochain point à atteindre
+
+
+        if self.counter % 2 == 0:
+            self.occupancy_grid.display_cv(odo, goal=goal)
+
+        return self.control_tp2()
+        """

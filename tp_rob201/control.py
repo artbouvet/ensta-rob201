@@ -24,7 +24,7 @@ def reactive_obst_avoid(lidar):
     cone = laser_dist[140:220]
 
     if max(cone)<50:
-        return {"forward": -0.5, "rotation": last_turn*0.5}  # recule si obstacle trop proche
+        return {"forward": -1.0, "rotation": last_turn*1.0}  # recule si obstacle trop proche
 
     if(min(cone) < 50):
         # Sens de rotation selon angle de l'obstacle
